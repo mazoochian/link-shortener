@@ -44,7 +44,7 @@ pub async fn request_short_link(url: String) -> Result<String, JsValue> {
     opts.credentials(RequestCredentials::Include);
 
 
-    let request = Request::new_with_str_and_init("https://api.mzch.in/create/", &opts).unwrap();
+    let request = Request::new_with_str_and_init("https://mzch.in/create/", &opts).unwrap();
 
     let window = web_sys::window().unwrap();
     let resp_value = JsFuture::from(window.fetch_with_request(&request)).await.unwrap();
