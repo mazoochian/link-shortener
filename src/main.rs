@@ -2,6 +2,7 @@ mod colors;
 mod components;
 mod utils;
 
+use std::future::Future;
 use crate::colors::{SVG_DEFAULT, SVG_GRADIENTS};
 use crate::components::color_selector::ColorSelector;
 use crate::components::random_short_link::RandomShortLink;
@@ -11,11 +12,63 @@ use stylist::yew::styled_component;
 use stylist::{Error, Style};
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::{JsCast, JsValue, UnwrapThrowExt};
-use web_sys::{
-    window, Blob, BlobPropertyBag, HtmlElement, HtmlImageElement, HtmlTextAreaElement, Url,
-    XmlSerializer,
-};
+use web_sys::{window, Blob, BlobPropertyBag, HtmlElement, HtmlImageElement, HtmlTextAreaElement, Url, XmlSerializer, RequestCredentials, Headers};
 use yew::prelude::*;
+use wasm_bindgen_futures::JsFuture;
+use web_sys::{Request, RequestInit, RequestMode, Response};
+use serde::{Deserialize, Serialize};
+use yew::platform::spawn_local;
+
+#[derive(Serialize)]
+pub struct URLCreationRequest {
+    url: String
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+struct URLMapping {
+    url: String,
+    short_link: String,
+}
+
+#[wasm_bindgen]
+pub async fn request_short_link(url: String) -> Result<String, JsValue> {
+    let headers = Headers::new().unwrap();
+    headers.set("Accept", "application/json").unwrap();
+    headers.set("Content-Type", "application/json").unwrap();
+
+    let mut opts = RequestInit::new();
+    opts.method("POST");
+    opts.body(Some(&serde_wasm_bindgen::to_value(&serde_json::to_string(&URLCreationRequest { url: url.clone() }).unwrap()).unwrap()));
+    opts.mode(RequestMode::Cors);
+    opts.headers(&headers);
+    opts.credentials(RequestCredentials::Include);
+
+
+    let request = Request::new_with_str_and_init("http://localhost:9191/create/", &opts).unwrap();
+
+    let window = web_sys::window().unwrap();
+    let resp_value = JsFuture::from(window.fetch_with_request(&request)).await.unwrap();
+
+    // `resp_value` is a `Response` object.
+    assert!(resp_value.is_instance_of::<Response>());
+    let resp: Response = resp_value.dyn_into().unwrap();
+
+    // Convert this other `Promise` into a rust `Future`.
+    let json = JsFuture::from(resp.json().unwrap()).await;
+
+    // Send the JSON response back to JS.
+    match json {
+        Ok(res) => {
+            web_sys::console::log_1(&res);
+            let result: String = js_sys::Reflect::get(&res, &"short_link".into())?.as_string().unwrap();
+            Ok(result)
+        }
+        Err(e) => {
+            web_sys::console::error_1(&e);
+            Err(e)
+        }
+    }
+}
 
 #[styled_component]
 fn App() -> Html {
@@ -26,6 +79,7 @@ fn App() -> Html {
     let url = use_state(|| "".to_string());
     let url_c = (*url).clone();
     let div_ref3 = div_ref.clone();
+    let short_link = use_state(|| "".to_string());
 
     let on_color_change = Callback::from({
         let color_string = color_string.clone();
@@ -34,22 +88,33 @@ fn App() -> Html {
         }
     });
 
-    let oninput = move |e: InputEvent| {
-        e.prevent_default();
-        let input_elem: HtmlTextAreaElement = e.target().unwrap_throw().dyn_into().unwrap_throw();
-        let value = input_elem.value();
-        url.set(value.clone());
-        let string_svg: String =
-            qrcode_generator::to_svg_to_string(value.clone(), QrCodeEcc::Low, 300, None::<&str>)
-                .unwrap();
-        let div = div_ref3
-            .cast::<HtmlElement>()
-            .expect("div_ref not attached to div element");
-        let inject_gradients = SVG_GRADIENTS.to_string();
+    let oninput = {
+        let short_link = short_link.clone();
+        Callback::from(move |e: InputEvent| {
+            e.prevent_default();
+            let input_elem: HtmlTextAreaElement = e.target().unwrap_throw().dyn_into().unwrap_throw();
+            let value = input_elem.value();
+            url.set(value.clone());
+            let string_svg: String =
+                qrcode_generator::to_svg_to_string(value.clone(), QrCodeEcc::Low, 300, None::<&str>)
+                    .unwrap();
+            let div = div_ref3
+                .cast::<HtmlElement>()
+                .expect("div_ref not attached to div element");
+            let inject_gradients = SVG_GRADIENTS.to_string();
 
-        let final_string = format!("{}{}", inject_gradients, string_svg);
+            let final_string = format!("{}{}", inject_gradients, string_svg);
 
-        div.set_inner_html(final_string.as_str());
+            div.set_inner_html(final_string.as_str());
+
+            spawn_local({
+                let short_link = short_link.clone();
+                async move {
+                    let short_link_value: String = request_short_link(value).await.expect("No response from backend");
+                    short_link.set(short_link_value);
+                }
+            });
+        })
     };
 
     let _div_ref = div_ref.clone();
@@ -179,27 +244,27 @@ fn App() -> Html {
 
                 </div>
                 <Spacer vertical={15} />
-                <RandomShortLink />
+                <RandomShortLink generated_url={(*short_link).clone()} />
                 <Spacer vertical={15} />
                 <ColorSelector on_color_change={on_color_change} />
-                <button class={css!("
-                    padding: 15px 30px;
-                    border-radius: 5px;
-                    border: none;
-                    background: #d1d1d1;
-                    position: absolute;
-                    right: 205px;
-                    bottom: 30px;
-                ")}>{"Create short link"}</button>
-                <button disabled={true} onclick={onclick} class={css!("
-                    padding: 15px 30px;
-                    border-radius: 5px;
-                    border: none;
-                    background: #d1d1d1;
-                    position: absolute;
-                    right: 30px;
-                    bottom: 30px;
-                ")}>{"Download as PNG"}</button>
+                // <button class={css!("
+                //     padding: 15px 30px;
+                //     border-radius: 5px;
+                //     border: none;
+                //     background: #d1d1d1;
+                //     position: absolute;
+                //     right: 205px;
+                //     bottom: 30px;
+                // ")}>{"Create short link"}</button>
+                // <button disabled={true} onclick={onclick} class={css!("
+                //     padding: 15px 30px;
+                //     border-radius: 5px;
+                //     border: none;
+                //     background: #d1d1d1;
+                //     position: absolute;
+                //     right: 30px;
+                //     bottom: 30px;
+                // ")}>{"Download as PNG"}</button>
                 // <canvas id={"canvas"}></canvas>
             </div>
         </main>

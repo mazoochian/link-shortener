@@ -8,10 +8,15 @@ fn generate() -> String {
     string    
 }
 
+#[derive(Properties, PartialEq)]
+pub struct RandomShortLinkProps {
+    pub generated_url: String,
+}
+
 #[styled_component]
-pub fn RandomShortLink() -> Html {
-    let string = generate();
-    let domain = "https://mzch.in/";
+pub fn RandomShortLink(props: &RandomShortLinkProps) -> Html {
+    let string = &props.generated_url;
+    let domain = "http://localhost:9090/";
     let url = format!("{}{}", domain, string);
     
     let _url = url.clone();
