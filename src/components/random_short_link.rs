@@ -16,7 +16,7 @@ pub struct RandomShortLinkProps {
 #[styled_component]
 pub fn RandomShortLink(props: &RandomShortLinkProps) -> Html {
     let string = &props.generated_url;
-    let domain = "https://mzch.in/";
+    let domain = "https://api.mzch.in/";
     let url = format!("{}{}", domain, string);
     
     let _url = url.clone();
