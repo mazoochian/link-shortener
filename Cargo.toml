@@ -7,8 +7,10 @@ edition = "2021"
 
 [dependencies]
 yew = { version = "0.21.0", features = ["csr"] }
+yew-router = { version = "0.18.0" }
+#yew-router = { git = "https://github.com/yewstack/yew.git" }
 stylist = { version = "0.13", features = ["yew_integration", "parser"] }
-web-sys = { version = "0.3.68", features = [
+web-sys = { version = "0.3.73", features = [
     "HtmlTextAreaElement",
     "DomParser",
     "Document",
@@ -33,7 +35,7 @@ web-sys = { version = "0.3.68", features = [
 ] }
 js-sys = "0.3.68"
 wasm-bindgen = "0.2.91"
-qrcode-generator = "4.1.9"
+qrcode-generator = "5.0.0"
 rand = "0.8.5"
 futures = "0.3.30"
 wasm-bindgen-futures = "0.4.41"

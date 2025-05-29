@@ -1,12 +1,9 @@
-mod colors;
 mod components;
-mod utils;
+mod lib;
 
-use std::future::Future;
-use crate::colors::{SVG_DEFAULT, SVG_GRADIENTS};
-use crate::components::color_selector::ColorSelector;
-use crate::components::random_short_link::RandomShortLink;
-use crate::components::spacer::Spacer;
+use components::color_selector::ColorSelector;
+use components::random_short_link::RandomShortLink;
+use components::spacer::Spacer;
 use qrcode_generator::QrCodeEcc;
 use stylist::yew::styled_component;
 use stylist::{Error, Style};
@@ -18,6 +15,19 @@ use wasm_bindgen_futures::JsFuture;
 use web_sys::{Request, RequestInit, RequestMode, Response};
 use serde::{Deserialize, Serialize};
 use yew::platform::spawn_local;
+use yew_router::prelude::*;
+use crate::components::login_form::LoginForm;
+use crate::lib::colors::{SVG_DEFAULT, SVG_GRADIENTS};
+
+#[derive(Clone, Routable, PartialEq)]
+pub enum Routes {
+    #[at("/")]
+    Home,
+    #[at("/login")]
+    Login,
+    #[at("/404")]
+    NotFound
+}
 
 #[derive(Serialize)]
 pub struct URLCreationRequest {
@@ -32,29 +42,29 @@ struct URLMapping {
 
 #[wasm_bindgen]
 pub async fn request_short_link(url: String) -> Result<String, JsValue> {
-    let headers = Headers::new().unwrap();
-    headers.set("Accept", "application/json").unwrap();
-    headers.set("Content-Type", "application/json").unwrap();
+    let headers = Headers::new()?;
+    headers.set("Accept", "application/json")?;
+    headers.set("Content-Type", "application/json")?;
 
-    let mut opts = RequestInit::new();
-    opts.method("POST");
-    opts.body(Some(&serde_wasm_bindgen::to_value(&serde_json::to_string(&URLCreationRequest { url: url.clone() }).unwrap()).unwrap()));
-    opts.mode(RequestMode::Cors);
-    opts.headers(&headers);
-    opts.credentials(RequestCredentials::Include);
+    let opts = RequestInit::new();
+    opts.set_method("POST");
+    opts.set_body(&serde_wasm_bindgen::to_value(&serde_json::to_string(&URLCreationRequest { url: url.clone() }).unwrap())?);
+    opts.set_mode(RequestMode::Cors);
+    opts.set_headers(&headers);
+    opts.set_credentials(RequestCredentials::Include);
 
 
-    let request = Request::new_with_str_and_init("https://mzch.in/create/", &opts).unwrap();
+    let request = Request::new_with_str_and_init("http://localhost:9191/create/", &opts)?;
 
-    let window = web_sys::window().unwrap();
-    let resp_value = JsFuture::from(window.fetch_with_request(&request)).await.unwrap();
+    let window = window().unwrap();
+    let resp_value = JsFuture::from(window.fetch_with_request(&request)).await?;
 
     // `resp_value` is a `Response` object.
     assert!(resp_value.is_instance_of::<Response>());
-    let resp: Response = resp_value.dyn_into().unwrap();
+    let resp: Response = resp_value.dyn_into()?;
 
     // Convert this other `Promise` into a rust `Future`.
-    let json = JsFuture::from(resp.json().unwrap()).await;
+    let json = JsFuture::from(resp.json()?).await;
 
     // Send the JSON response back to JS.
     match json {
@@ -70,8 +80,8 @@ pub async fn request_short_link(url: String) -> Result<String, JsValue> {
     }
 }
 
-#[styled_component]
-fn App() -> Html {
+#[styled_component(Dashboard)]
+fn dashboard() -> Html {
     let color_default_style = Style::new(SVG_DEFAULT);
     let color_string = use_state(|| color_default_style);
     let color_string2 = color_string.clone();
@@ -118,7 +128,7 @@ fn App() -> Html {
     };
 
     let _div_ref = div_ref.clone();
-    let onclick = move |_: MouseEvent| {
+    let _onclick = move |_: MouseEvent| {
         let div = _div_ref
             .cast::<HtmlElement>()
             .expect("_div_ref not attached to div element");
@@ -127,8 +137,8 @@ fn App() -> Html {
         let serializer = XmlSerializer::new().unwrap();
         let svg_string = serializer.serialize_to_string(&svg).unwrap();
         web_sys::console::log_1(&JsValue::from_str(&svg_string));
-        let mut options = BlobPropertyBag::new();
-        options.type_("image/svg+xml;charset=utf-8");
+        let options = BlobPropertyBag::new();
+        options.set_type("image/svg+xml;charset=utf-8");
         let str_svg_as_js_value = JsValue::from_str(svg_string.as_str());
         let array = js_sys::Array::from_iter(std::iter::once(str_svg_as_js_value));
         let svg_blob = Blob::new_with_str_sequence(&array).expect("Blob creation failed.");
@@ -141,7 +151,7 @@ fn App() -> Html {
         web_sys::console::log_1(&JsValue::from_bool(image.complete()));
 
         let img_load = move || {
-            let document = web_sys::window().unwrap().document().unwrap();
+            let document = window().unwrap().document().unwrap();
             let canvas = document.create_element("canvas").unwrap();
             let canvas: web_sys::HtmlCanvasElement = canvas
                 .dyn_into::<web_sys::HtmlCanvasElement>()
@@ -172,7 +182,7 @@ fn App() -> Html {
                 .body()
                 .expect("Couldn't get body")
                 .set_inner_html(
-                    (format!("<img src=\"{}\" width=\"300px\" height=\"300px\">", uri)).as_str(),
+                    format!("<img src=\"{}\" width=\"300px\" height=\"300px\">", uri).as_str(),
                 );
             web_sys::console::log_1(&JsValue::from_bool(image2.complete()));
             web_sys::console::log_1(&svg.children().item(2).expect("msg").to_string());
@@ -204,7 +214,7 @@ fn App() -> Html {
                     font-size: 28px;
                     margin-block-end: 10px;
                 ")}>
-                    {"URL Shortner"}
+                    {"URL Shortener"}
                 </h4>
                 <p class={css!("
                     color: #131313;
@@ -222,6 +232,7 @@ fn App() -> Html {
                     background-color: #c8c8c8;
                     font-size: 32px;
                     resize: none;
+                    cursor: default;
                 ")} placeholder={"Enter text, numbers, URLs, etc."} value={url_c} oninput={oninput}></textarea>
             </div>
             <div class={css!("
@@ -229,7 +240,7 @@ fn App() -> Html {
                 height: 100%;
                 background-color: #e4e4e4;
                 padding: 30px;
-            
+
                 > div#render {
                     width: 100%;
                     height: 50%;
@@ -240,7 +251,7 @@ fn App() -> Html {
                     align-items: center;
                 }
             ")}>
-                <div id={"render"} class={(*((*color_string2).as_ref()).unwrap()).clone()} ref={div_ref}>
+                <div id={"render"} class={(*(*color_string2).as_ref().unwrap()).clone()} ref={div_ref}>
 
                 </div>
                 <Spacer vertical={15} />
@@ -268,6 +279,29 @@ fn App() -> Html {
                 // <canvas id={"canvas"}></canvas>
             </div>
         </main>
+    }
+}
+
+fn switch(routes: Routes) -> Html {
+    match routes {
+        Routes::Home => html! {
+            <Dashboard />
+        },
+        Routes::Login => html! {
+            <LoginForm />
+        },
+        Routes::NotFound => html! { <h1>{ "404" }</h1> },
+    }
+}
+
+#[styled_component(App)]
+fn app() -> Html {
+    html! {
+        <div class={css!("")}>
+            <BrowserRouter>
+                <Switch<Routes> render={switch} /> // <- must be child of <BrowserRouter>
+            </BrowserRouter>
+        </div>
     }
 }
 

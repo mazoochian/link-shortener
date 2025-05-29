@@ -1,8 +1,8 @@
 use stylist::yew::styled_component;
 use stylist::{Style, Error};
 use yew::prelude::*;
-use crate::colors::QRColor;
 use yew::Properties;
+use crate::lib::colors::QRColor;
 
 #[derive(Properties, PartialEq)]
 pub struct ColorSelectorProps {

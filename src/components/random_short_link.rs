@@ -24,7 +24,7 @@ pub fn RandomShortLink(props: &RandomShortLinkProps) -> Html {
     let onclick = move |_: MouseEvent| {
         let w = window().expect("No Window Found");
         let navigator = w.navigator();
-        let _ = navigator.clipboard().unwrap().write_text(_url.as_str());
+        let _ = navigator.clipboard().write_text(_url.as_str());
     };
     html! {
         <div>

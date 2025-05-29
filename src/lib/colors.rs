@@ -32,6 +32,6 @@ pub static SVG_DEFAULT: &str = "
       fill: black;
     }
     svg > rect {
-      display: none;  
+      display: none;
     }
 ";
