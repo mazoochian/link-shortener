@@ -258,25 +258,6 @@ fn dashboard() -> Html {
                 <RandomShortLink generated_url={(*short_link).clone()} />
                 <Spacer vertical={15} />
                 <ColorSelector on_color_change={on_color_change} />
-                // <button class={css!("
-                //     padding: 15px 30px;
-                //     border-radius: 5px;
-                //     border: none;
-                //     background: #d1d1d1;
-                //     position: absolute;
-                //     right: 205px;
-                //     bottom: 30px;
-                // ")}>{"Create short link"}</button>
-                // <button disabled={true} onclick={onclick} class={css!("
-                //     padding: 15px 30px;
-                //     border-radius: 5px;
-                //     border: none;
-                //     background: #d1d1d1;
-                //     position: absolute;
-                //     right: 30px;
-                //     bottom: 30px;
-                // ")}>{"Download as PNG"}</button>
-                // <canvas id={"canvas"}></canvas>
             </div>
         </main>
     }
